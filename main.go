@@ -1,6 +1,9 @@
 package main
 
 import (
+	"flag"
+	"fmt"
+
 	"github.com/isa0-gh/httpshare/template"
 	"github.com/isa0-gh/httpshare/utils"
 	"github.com/labstack/echo/v4"
@@ -8,7 +11,7 @@ import (
 
 func main() {
 	e := echo.New()
-
+	e.HideBanner = true
 	e.GET("/*", func(c echo.Context) error {
 		path := utils.UrlToFilePath(c.Param("*"))
 		if path == "" {
@@ -28,6 +31,8 @@ func main() {
 
 		return c.HTML(200, output)
 	})
-
-	e.Logger.Fatal(e.Start(":8080"))
+	port := flag.Int("port", 8080, "Port number to run the server on")
+	flag.Parse()
+	fmt.Printf("Listening on http://localhost:%d/\n", *port)
+	e.Logger.Fatal(e.Start(fmt.Sprintf(":%d", *port)))
 }
