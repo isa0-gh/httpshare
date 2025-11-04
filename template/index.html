@@ -23,7 +23,7 @@
       
       <!-- Directories -->
       {{range .Directories}}
-      <a href="/{{.}}/" class="group bg-gray-800 p-4 rounded-lg flex flex-col items-center hover:bg-gray-700 transition">
+      <a href="{{.}}/" class="group bg-gray-800 p-4 rounded-lg flex flex-col items-center hover:bg-gray-700 transition">
         <div class="text-yellow-400 text-6xl mb-2">📁</div>
         <div class="text-center font-medium truncate w-full">{{.}}</div>
       </a>
@@ -31,7 +31,7 @@
 
       <!-- Files -->
       {{range .Files}}
-      <a href="/{{.}}/download" class="group bg-gray-800 p-4 rounded-lg flex flex-col items-center hover:bg-gray-700 transition">
+      <a href="{{.}}/?download=true" class="group bg-gray-800 p-4 rounded-lg flex flex-col items-center hover:bg-gray-700 transition">
         <div class="text-blue-400 text-6xl mb-2">📄</div>
         <div class="text-center font-medium truncate w-full">{{.}}</div>
       </a>
