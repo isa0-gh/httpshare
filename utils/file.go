@@ -40,8 +40,7 @@ func GetFiles(path string) (models.DirectoryEntries, error) {
 	return directoryEntries, nil
 }
 
-func UrlToFilePath(url string) string {
+func UrlToFilePath(basePath string, url string) string {
 	parts := strings.Split(url, "/")
-	path := filepath.Join(parts...)
-	return path
+	return filepath.Join(basePath, filepath.Join(parts...))
 }
