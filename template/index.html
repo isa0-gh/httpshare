@@ -3,63 +3,568 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Files</title>
+  <title>httpshare - {{.Path}}</title>
   <script src="/tailwind.js"></script>
+  <style>
+    .modal { display: none; }
+    .modal.active { display: flex; }
+    .gallery-image { 
+      max-height: 80vh; 
+      max-width: 90vw; 
+      object-fit: contain; 
+    }
+    .markdown-body {
+      color: #e5e7eb;
+      line-height: 1.6;
+    }
+    .markdown-body h1, .markdown-body h2, .markdown-body h3 {
+      color: #fbbf24;
+      margin-top: 1.5rem;
+      margin-bottom: 0.75rem;
+    }
+    .markdown-body code {
+      background: #1f2937;
+      padding: 0.2rem 0.4rem;
+      border-radius: 0.25rem;
+      font-size: 0.875rem;
+    }
+    .markdown-body pre {
+      background: #1f2937;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      overflow-x: auto;
+    }
+    .markdown-body pre code {
+      background: transparent;
+      padding: 0;
+    }
+    .markdown-body a {
+      color: #60a5fa;
+      text-decoration: underline;
+    }
+    .markdown-body ul, .markdown-body ol {
+      margin-left: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .markdown-body blockquote {
+      border-left: 4px solid #fbbf24;
+      padding-left: 1rem;
+      color: #9ca3af;
+      margin: 1rem 0;
+    }
+  </style>
 </head>
 <body class="bg-gray-900 min-h-screen text-gray-100 font-sans">
 
-  <div class="max-w-6xl mx-auto p-6">
+  <div class="max-w-7xl mx-auto p-6">
 
-    <!-- Current Directory / Breadcrumb -->
-    <div class="mb-8 text-gray-300 text-lg flex items-center space-x-3">
-      <a id="up-directory" href="#" class="hover:text-white flex items-center transition">
-        <span class="text-yellow-400 mr-1">⬆️</span> ../
-      </a>
-      <span class="text-yellow-400">📂 {{.Path}}</span>
-      <span id="current-dir" class="truncate"></span>
+    <!-- Header with Navigation and Actions -->
+    <div class="mb-6 space-y-4">
+      <!-- Breadcrumb -->
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-3 text-lg">
+          <a id="up-directory" href="#" class="hover:text-yellow-400 flex items-center transition">
+            <span class="mr-1">⬆️</span> ../
+          </a>
+          <span class="text-yellow-400">📂 {{.Path}}</span>
+        </div>
+      </div>
+
+      <!-- Search, Sort, and Actions -->
+      <div class="flex flex-wrap gap-3 items-center">
+        <!-- Search -->
+        <input type="text" id="searchInput" placeholder="🔍 Search files..." 
+               class="bg-gray-800 px-4 py-2 rounded-lg flex-1 min-w-[200px] focus:outline-none focus:ring-2 focus:ring-yellow-400">
+        
+        <!-- Sort -->
+        <select id="sortBy" class="bg-gray-800 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400">
+          <option value="">Sort by...</option>
+          <option value="name">Name</option>
+          <option value="size">Size</option>
+          <option value="date">Date</option>
+        </select>
+
+        <!-- Actions -->
+        <button onclick="openUploadModal()" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition">
+          📤 Upload
+        </button>
+        <button onclick="openMkdirModal()" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg transition">
+          📁 New Folder
+        </button>
+        <button onclick="openGallery()" class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition">
+          🖼️ Gallery
+        </button>
+      </div>
     </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-      
-      <!-- Directories -->
-      {{range .Directories}}
-      <a href="{{.}}/" class="group bg-gray-800 p-4 rounded-lg flex flex-col items-center hover:bg-gray-700 transition">
-        <div class="text-yellow-400 text-6xl mb-2">📁</div>
-        <div class="text-center font-medium truncate w-full">{{.}}</div>
-      </a>
-      {{end}}
+    <!-- Files Table -->
+    <div class="bg-gray-800 rounded-lg overflow-hidden">
+      <table class="w-full">
+        <thead class="bg-gray-700">
+          <tr>
+            <th class="px-4 py-3 text-left">Name</th>
+            <th class="px-4 py-3 text-left hidden md:table-cell">Size</th>
+            <th class="px-4 py-3 text-left hidden lg:table-cell">Modified</th>
+            <th class="px-4 py-3 text-left hidden lg:table-cell">Permissions</th>
+            <th class="px-4 py-3 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="fileList">
+          {{range .Entries}}
+          <tr class="border-t border-gray-700 hover:bg-gray-750 transition" data-name="{{.Name}}">
+            <td class="px-4 py-3">
+              <div class="flex items-center space-x-2">
+                {{if .IsDir}}
+                  <span class="text-2xl">📁</span>
+                  <a href="{{.Name}}/" class="hover:text-yellow-400 truncate">{{.Name}}</a>
+                {{else if .IsImage}}
+                  <span class="text-2xl">🖼️</span>
+                  <a href="#" onclick="event.preventDefault(); openImageInGallery('{{.Name}}');" class="hover:text-yellow-400 truncate">{{.Name}}</a>
+                {{else}}
+                  <span class="text-2xl">📄</span>
+                  <a href="{{.Name}}/?download=true" class="hover:text-yellow-400 truncate">{{.Name}}</a>
+                {{end}}
+              </div>
+            </td>
+            <td class="px-4 py-3 text-gray-400 hidden md:table-cell">
+              {{if .IsDir}}-{{else}}{{formatSize .Size}}{{end}}
+            </td>
+            <td class="px-4 py-3 text-gray-400 hidden lg:table-cell">
+              {{.ModTime.Format "2006-01-02 15:04"}}
+            </td>
+            <td class="px-4 py-3 text-gray-400 font-mono text-sm hidden lg:table-cell">
+              {{.Permissions}}
+            </td>
+            <td class="px-4 py-3 text-right">
+              <div class="flex justify-end space-x-2">
+                {{if canPreview .Name}}
+                <button onclick="previewFile('{{.Name}}')" class="text-blue-400 hover:text-blue-300 text-sm">
+                  👁️
+                </button>
+                {{end}}
+                <button onclick="renameItem('{{.Name}}')" class="text-yellow-400 hover:text-yellow-300 text-sm">
+                  ✏️
+                </button>
+                <button onclick="deleteItem('{{.Name}}')" class="text-red-400 hover:text-red-300 text-sm">
+                  🗑️
+                </button>
+              </div>
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
 
-      <!-- Files -->
-      {{range .Files}}
-      <a href="{{.}}/?download=true" class="group bg-gray-800 p-4 rounded-lg flex flex-col items-center hover:bg-gray-700 transition">
-        <div class="text-blue-400 text-6xl mb-2">📄</div>
-        <div class="text-center font-medium truncate w-full">{{.}}</div>
-      </a>
-      {{end}}
+  </div>
 
-      {{range .Images}}
-      <a href="{{.}}/?download=true" class="group bg-gray-800 p-4 rounded-lg flex flex-col items-center hover:bg-gray-700 transition">
-        <div class="text-blue-400 text-6xl mb-2"><img src="{{.}}/?download=true"></div>
-        <div class="text-center font-medium truncate w-full">{{.}}</div>
-      </a>
-      {{end}}
+  <!-- Upload Modal -->
+  <div id="uploadModal" class="modal fixed inset-0 bg-black bg-opacity-50 items-center justify-center">
+    <div class="bg-gray-800 p-6 rounded-lg max-w-md w-full mx-4">
+      <h2 class="text-xl font-bold mb-4">Upload File</h2>
+      <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" id="fileInput" class="w-full mb-4 text-gray-300">
+        <div class="flex justify-end space-x-3">
+          <button type="button" onclick="closeUploadModal()" class="px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600">
+            Cancel
+          </button>
+          <button type="submit" class="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700">
+            Upload
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
 
+  <!-- Mkdir Modal -->
+  <div id="mkdirModal" class="modal fixed inset-0 bg-black bg-opacity-50 items-center justify-center">
+    <div class="bg-gray-800 p-6 rounded-lg max-w-md w-full mx-4">
+      <h2 class="text-xl font-bold mb-4">Create New Folder</h2>
+      <form id="mkdirForm">
+        <input type="text" id="folderName" placeholder="Folder name" 
+               class="w-full mb-4 px-4 py-2 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400">
+        <div class="flex justify-end space-x-3">
+          <button type="button" onclick="closeMkdirModal()" class="px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600">
+            Cancel
+          </button>
+          <button type="submit" class="px-4 py-2 bg-green-600 rounded-lg hover:bg-green-700">
+            Create
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Preview Modal -->
+  <div id="previewModal" class="modal fixed inset-0 bg-black bg-opacity-75 items-center justify-center p-4">
+    <div class="bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-auto">
+      <div class="p-4 border-b border-gray-700 flex justify-between items-center">
+        <h2 id="previewTitle" class="text-xl font-bold">Preview</h2>
+        <button onclick="closePreviewModal()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+      </div>
+      <div id="previewContent" class="p-4"></div>
+    </div>
+  </div>
+
+  <!-- Gallery Modal -->
+  <div id="galleryModal" class="modal fixed inset-0 bg-black bg-opacity-95 items-center justify-center">
+    <button onclick="closeGallery()" class="absolute top-4 right-4 text-white text-4xl z-50 hover:text-gray-300">&times;</button>
+    
+    <button onclick="prevImage()" class="absolute left-4 text-white text-5xl z-50 hover:text-gray-300 bg-black bg-opacity-50 rounded-full w-16 h-16 flex items-center justify-center">
+      ‹
+    </button>
+    
+    <button onclick="nextImage()" class="absolute right-4 text-white text-5xl z-50 hover:text-gray-300 bg-black bg-opacity-50 rounded-full w-16 h-16 flex items-center justify-center">
+      ›
+    </button>
+
+    <div class="text-center">
+      <img id="galleryImage" src="" alt="" class="gallery-image mx-auto">
+      <div class="mt-4 text-white">
+        <p id="galleryImageName" class="text-xl font-bold"></p>
+        <p id="galleryCounter" class="text-gray-400 mt-2"></p>
+      </div>
     </div>
   </div>
 
   <script>
-    const path = window.location.pathname;
+    // Markdown parser
+    function parseMarkdown(text) {
+      // Escape HTML first
+      let html = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      
+      // Code blocks (```...```)
+      html = html.replace(/```([^`]+)```/g, '<pre><code>$1</code></pre>');
+      
+      // Headers
+      html = html.replace(/^#### (.*$)/gim, '<h4>$1</h4>');
+      html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+      html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+      html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+      
+      // Bold and Italic
+      html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+      html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+      html = html.replace(/___(.+?)___/g, '<strong><em>$1</em></strong>');
+      html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
+      html = html.replace(/_(.+?)_/g, '<em>$1</em>');
+      
+      // Inline code
+      html = html.replace(/`(.+?)`/g, '<code>$1</code>');
+      
+      // Links
+      html = html.replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank">$1</a>');
+      
+      // Images
+      html = html.replace(/!\[(.+?)\]\((.+?)\)/g, '<img src="$2" alt="$1" class="max-w-full h-auto">');
+      
+      // Lists
+      const lines = html.split('\n');
+      let inList = false;
+      let listType = '';
+      let result = [];
+      
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const ulMatch = line.match(/^[\s]*[-*+] (.+)/);
+        const olMatch = line.match(/^[\s]*\d+\. (.+)/);
+        
+        if (ulMatch) {
+          if (!inList || listType !== 'ul') {
+            if (inList) result.push(`</${listType}>`);
+            result.push('<ul>');
+            inList = true;
+            listType = 'ul';
+          }
+          result.push(`<li>${ulMatch[1]}</li>`);
+        } else if (olMatch) {
+          if (!inList || listType !== 'ol') {
+            if (inList) result.push(`</${listType}>`);
+            result.push('<ol>');
+            inList = true;
+            listType = 'ol';
+          }
+          result.push(`<li>${olMatch[1]}</li>`);
+        } else {
+          if (inList) {
+            result.push(`</${listType}>`);
+            inList = false;
+            listType = '';
+          }
+          result.push(line);
+        }
+      }
+      if (inList) result.push(`</${listType}>`);
+      html = result.join('\n');
+      
+      // Blockquotes
+      html = html.replace(/^&gt; (.+$)/gim, '<blockquote>$1</blockquote>');
+      
+      // Horizontal rules
+      html = html.replace(/^---$/gim, '<hr>');
+      html = html.replace(/^\*\*\*$/gim, '<hr>');
+      
+      // Paragraphs
+      html = html.replace(/\n\n/g, '</p><p>');
+      html = html.replace(/\n/g, '<br>');
+      html = '<p>' + html + '</p>';
+      
+      // Clean up empty paragraphs
+      html = html.replace(/<p><\/p>/g, '');
+      html = html.replace(/<p><br>/g, '<p>');
+      html = html.replace(/<br><\/p>/g, '</p>');
+      
+      return html;
+    }
 
+    const currentPath = window.location.pathname;
     const upLink = document.getElementById('up-directory');
 
-    // Set "../" link dynamically
-    if (path !== "/") {
-      const trimmedPath = path.endsWith('/') ? path.slice(0, -1) : path;
+    // Setup navigation
+    if (currentPath !== "/") {
+      const trimmedPath = currentPath.endsWith('/') ? currentPath.slice(0, -1) : currentPath;
       const parent = trimmedPath.substring(0, trimmedPath.lastIndexOf('/') + 1) || "/";
       upLink.href = parent;
     } else {
-      // Hide ../ if at root
       upLink.style.display = 'none';
+    }
+
+    // Search functionality
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+      const query = e.target.value.toLowerCase();
+      const rows = document.querySelectorAll('#fileList tr');
+      rows.forEach(row => {
+        const name = row.getAttribute('data-name').toLowerCase();
+        row.style.display = name.includes(query) ? '' : 'none';
+      });
+    });
+
+    // Sort functionality
+    document.getElementById('sortBy').addEventListener('change', (e) => {
+      const sortBy = e.target.value;
+      if (sortBy) {
+        const url = new URL(window.location);
+        url.searchParams.set('sort', sortBy);
+        url.searchParams.set('order', 'asc');
+        window.location = url;
+      }
+    });
+
+    // Upload
+    function openUploadModal() {
+      document.getElementById('uploadModal').classList.add('active');
+    }
+    function closeUploadModal() {
+      document.getElementById('uploadModal').classList.remove('active');
+    }
+    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData();
+      formData.append('file', document.getElementById('fileInput').files[0]);
+      formData.append('path', currentPath === '/' ? '.' : currentPath.substring(1));
+      
+      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      if (res.ok) {
+        location.reload();
+      } else {
+        alert('Upload failed');
+      }
+    });
+
+    // Mkdir
+    function openMkdirModal() {
+      document.getElementById('mkdirModal').classList.add('active');
+    }
+    function closeMkdirModal() {
+      document.getElementById('mkdirModal').classList.remove('active');
+    }
+    document.getElementById('mkdirForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const folderName = document.getElementById('folderName').value;
+      const basePath = currentPath === '/' ? '' : currentPath.substring(1);
+      const fullPath = basePath ? basePath + '/' + folderName : folderName;
+      
+      const formData = new FormData();
+      formData.append('path', fullPath);
+      
+      const res = await fetch('/api/mkdir', { method: 'POST', body: formData });
+      if (res.ok) {
+        location.reload();
+      } else {
+        alert('Failed to create folder');
+      }
+    });
+
+    // Delete
+    async function deleteItem(name) {
+      if (!confirm(`Delete ${name}?`)) return;
+      const basePath = currentPath === '/' ? '' : currentPath.substring(1);
+      const fullPath = basePath ? basePath + '/' + name : name;
+      
+      const res = await fetch(`/api/delete?path=${encodeURIComponent(fullPath)}`, { method: 'DELETE' });
+      if (res.ok) {
+        location.reload();
+      } else {
+        alert('Delete failed');
+      }
+    }
+
+    // Rename
+    async function renameItem(oldName) {
+      const newName = prompt('Enter new name:', oldName);
+      if (!newName || newName === oldName) return;
+      
+      const basePath = currentPath === '/' ? '' : currentPath.substring(1);
+      const oldPath = basePath ? basePath + '/' + oldName : oldName;
+      
+      const formData = new FormData();
+      formData.append('oldPath', oldPath);
+      formData.append('newName', newName);
+      
+      const res = await fetch('/api/rename', { method: 'POST', body: formData });
+      if (res.ok) {
+        location.reload();
+      } else {
+        alert('Rename failed');
+      }
+    }
+
+    // Preview
+    function previewFile(name) {
+      const basePath = currentPath === '/' ? '' : currentPath.substring(1);
+      const fullPath = basePath ? basePath + '/' + name : name;
+      const ext = name.split('.').pop().toLowerCase();
+      
+      document.getElementById('previewTitle').textContent = name;
+      const content = document.getElementById('previewContent');
+      
+      if (ext === 'md') {
+        // Markdown rendering
+        fetch(`/${fullPath}?download=true`)
+          .then(r => r.text())
+          .then(text => {
+            const html = parseMarkdown(text);
+            content.innerHTML = `<div class="markdown-body">${html}</div>`;
+          })
+          .catch(err => {
+            content.innerHTML = `<div class="text-red-400 p-4">Error loading file: ${err.message}</div>`;
+          });
+      } else if (['txt', 'log', 'json', 'xml', 'csv'].includes(ext)) {
+        fetch(`/${fullPath}?download=true`)
+          .then(r => r.text())
+          .then(text => {
+            content.innerHTML = `<pre class="bg-gray-900 p-4 rounded overflow-auto max-h-96">${escapeHtml(text)}</pre>`;
+          });
+      } else if (ext === 'pdf') {
+        content.innerHTML = `<iframe src="/${fullPath}?download=true" class="w-full h-96"></iframe>`;
+      } else if (['mp4', 'webm'].includes(ext)) {
+        content.innerHTML = `<video controls class="w-full"><source src="/${fullPath}?download=true"></video>`;
+      } else if (['mp3', 'wav'].includes(ext)) {
+        content.innerHTML = `<audio controls class="w-full"><source src="/${fullPath}?download=true"></audio>`;
+      }
+      
+      document.getElementById('previewModal').classList.add('active');
+    }
+    
+    function closePreviewModal() {
+      document.getElementById('previewModal').classList.remove('active');
+    }
+    
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Gallery functionality
+    let galleryImages = [];
+    let currentImageIndex = 0;
+
+    function openGallery() {
+      // Collect all images from the current directory
+      galleryImages = [];
+      const rows = document.querySelectorAll('#fileList tr');
+      const basePath = currentPath === '/' ? '' : currentPath.substring(1);
+      
+      rows.forEach(row => {
+        const name = row.getAttribute('data-name');
+        const imageIcon = row.querySelector('.text-2xl');
+        if (imageIcon && imageIcon.textContent === '🖼️') {
+          const fullPath = basePath ? basePath + '/' + name : name;
+          galleryImages.push({ name, path: fullPath });
+        }
+      });
+
+      if (galleryImages.length === 0) {
+        alert('No images found in this directory');
+        return;
+      }
+
+      currentImageIndex = 0;
+      showGalleryImage();
+      document.getElementById('galleryModal').classList.add('active');
+    }
+
+    function closeGallery() {
+      document.getElementById('galleryModal').classList.remove('active');
+    }
+
+    function showGalleryImage() {
+      if (galleryImages.length === 0) return;
+      
+      const img = galleryImages[currentImageIndex];
+      document.getElementById('galleryImage').src = `/${img.path}?download=true`;
+      document.getElementById('galleryImageName').textContent = img.name;
+      document.getElementById('galleryCounter').textContent = `${currentImageIndex + 1} / ${galleryImages.length}`;
+    }
+
+    function nextImage() {
+      if (galleryImages.length === 0) return;
+      currentImageIndex = (currentImageIndex + 1) % galleryImages.length;
+      showGalleryImage();
+    }
+
+    function prevImage() {
+      if (galleryImages.length === 0) return;
+      currentImageIndex = (currentImageIndex - 1 + galleryImages.length) % galleryImages.length;
+      showGalleryImage();
+    }
+
+    // Keyboard navigation for gallery
+    document.addEventListener('keydown', (e) => {
+      if (!document.getElementById('galleryModal').classList.contains('active')) return;
+      
+      if (e.key === 'ArrowRight') nextImage();
+      else if (e.key === 'ArrowLeft') prevImage();
+      else if (e.key === 'Escape') closeGallery();
+    });
+
+    // Open gallery when clicking on images
+    function openImageInGallery(imageName) {
+      // Collect all images
+      galleryImages = [];
+      const rows = document.querySelectorAll('#fileList tr');
+      const basePath = currentPath === '/' ? '' : currentPath.substring(1);
+      
+      rows.forEach(row => {
+        const name = row.getAttribute('data-name');
+        const imageIcon = row.querySelector('.text-2xl');
+        if (imageIcon && imageIcon.textContent === '🖼️') {
+          const fullPath = basePath ? basePath + '/' + name : name;
+          galleryImages.push({ name, path: fullPath });
+        }
+      });
+
+      // Find the index of clicked image
+      currentImageIndex = galleryImages.findIndex(img => img.name === imageName);
+      if (currentImageIndex === -1) currentImageIndex = 0;
+
+      showGalleryImage();
+      document.getElementById('galleryModal').classList.add('active');
     }
   </script>
 
