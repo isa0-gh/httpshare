@@ -4,8 +4,6 @@ import (
 	"bytes"
 	_ "embed"
 	"html/template"
-	"path"
-	"strings"
 
 	"gitlab.com/isa0/httpshare/models"
 	"gitlab.com/isa0/httpshare/utils"
@@ -18,20 +16,16 @@ var indexHTML string
 var tailwindJS string
 
 func canPreview(filename string) bool {
-	ext := strings.ToLower(path.Ext(filename))
-	previewableExts := []string{".txt", ".md", ".log", ".json", ".xml", ".csv", ".pdf", ".mp4", ".webm", ".mp3", ".wav"}
-	for _, e := range previewableExts {
-		if ext == e {
-			return true
-		}
-	}
-	return false
+	return utils.CanPreview(filename)
 }
 
 func Render(data models.DirectoryEntries) (string, error) {
 	funcMap := template.FuncMap{
 		"formatSize": utils.FormatSize,
 		"canPreview": canPreview,
+		"isVideo":    utils.IsVideo,
+		"isAudio":    utils.IsAudio,
+		"isOffice":   utils.IsOfficeDoc,
 	}
 	tmpl := template.Must(template.New("index").Funcs(funcMap).Parse(indexHTML))
 	var buf bytes.Buffer

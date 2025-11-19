@@ -3,22 +3,11 @@ package utils
 import (
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
 	"gitlab.com/isa0/httpshare/models"
 )
-
-func isImage(filename string) bool {
-	ext := path.Ext(filename)
-	for _, extType := range []string{".png", ".bmp", ".webp", ".gif", ".jpg", ".jpeg", ".svg", ".tiff"} {
-		if ext == extType {
-			return true
-		}
-	}
-	return false
-}
 
 func GetFiles(path string) (models.DirectoryEntries, error) {
 	var directoryEntries models.DirectoryEntries
@@ -32,11 +21,13 @@ func GetFiles(path string) (models.DirectoryEntries, error) {
 		if err != nil {
 			continue
 		}
-		
+
 		fileEntry := models.FileEntry{
 			Name:        entry.Name(),
 			IsDir:       entry.IsDir(),
-			IsImage:     isImage(entry.Name()),
+			IsImage:     IsImage(entry.Name()),
+			IsVideo:     IsVideo(entry.Name()),
+			IsAudio:     IsAudio(entry.Name()),
 			Size:        info.Size(),
 			ModTime:     info.ModTime(),
 			Permissions: info.Mode().String(),
@@ -55,7 +46,7 @@ func UrlToFilePath(basePath string, url string) string {
 func SearchFiles(basePath, query string) ([]models.FileEntry, error) {
 	var results []models.FileEntry
 	query = strings.ToLower(query)
-	
+
 	err := filepath.Walk(basePath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
@@ -65,7 +56,9 @@ func SearchFiles(basePath, query string) ([]models.FileEntry, error) {
 			results = append(results, models.FileEntry{
 				Name:        relPath,
 				IsDir:       info.IsDir(),
-				IsImage:     isImage(info.Name()),
+				IsImage:     IsImage(info.Name()),
+				IsVideo:     IsVideo(info.Name()),
+				IsAudio:     IsAudio(info.Name()),
 				Size:        info.Size(),
 				ModTime:     info.ModTime(),
 				Permissions: info.Mode().String(),
@@ -81,7 +74,7 @@ func SortEntries(entries []models.FileEntry, sortBy, order string) []models.File
 	if len(entries) == 0 {
 		return entries
 	}
-	
+
 	// Simple bubble sort
 	for i := 0; i < len(entries)-1; i++ {
 		for j := 0; j < len(entries)-i-1; j++ {
@@ -144,4 +137,35 @@ func FormatSize(bytes int64) string {
 	}
 	units := []string{"B", "KB", "MB", "GB", "TB"}
 	return fmt.Sprintf("%.1f %s", float64(bytes)/float64(div), units[exp])
+}
+
+// CopyFile copies a file from src to dst
+func CopyFile(src, dst string) error {
+	sourceFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer sourceFile.Close()
+
+	destFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer destFile.Close()
+
+	_, err = destFile.ReadFrom(sourceFile)
+	return err
+}
+
+// MoveFile moves a file from src to dst
+func MoveFile(src, dst string) error {
+	err := os.Rename(src, dst)
+	if err != nil {
+		// If rename fails (cross-device), copy and delete
+		if err := CopyFile(src, dst); err != nil {
+			return err
+		}
+		return os.Remove(src)
+	}
+	return nil
 }

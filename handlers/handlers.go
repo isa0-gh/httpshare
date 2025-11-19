@@ -81,6 +81,12 @@ func UploadFile(c echo.Context) error {
 		return c.JSON(500, map[string]string{"error": "Cannot save file"})
 	}
 
+	// Trigger webhooks
+	utils.TriggerWebhooks("upload", dstPath, map[string]interface{}{
+		"filename": file.Filename,
+		"size":     file.Size,
+	})
+
 	return c.JSON(200, map[string]string{"message": "File uploaded successfully"})
 }
 
@@ -93,6 +99,9 @@ func DeleteFile(c echo.Context) error {
 	if err := utils.DeleteFile(utils.UrlToFilePath(cfg.Directory, path)); err != nil {
 		return c.JSON(500, map[string]string{"error": err.Error()})
 	}
+
+	// Trigger webhooks
+	utils.TriggerWebhooks("delete", path, nil)
 
 	return c.JSON(200, map[string]string{"message": "Deleted successfully"})
 }
@@ -109,6 +118,9 @@ func RenameFile(c echo.Context) error {
 	if err := utils.RenameFile(utils.UrlToFilePath(cfg.Directory, oldPath), newName); err != nil {
 		return c.JSON(500, map[string]string{"error": err.Error()})
 	}
+
+	// Trigger webhooks
+	utils.TriggerWebhooks("rename", oldPath, map[string]interface{}{"newName": newName})
 
 	return c.JSON(200, map[string]string{"message": "Renamed successfully"})
 }
@@ -176,4 +188,102 @@ func BrowseFiles(c echo.Context) error {
 	}
 
 	return c.HTML(200, output)
+}
+
+// DownloadZip handles zip download of files/folders
+func DownloadZip(c echo.Context) error {
+	path := c.QueryParam("path")
+	if path == "" {
+		return c.JSON(400, map[string]string{"error": "Path is required"})
+	}
+
+	fullPath := utils.UrlToFilePath(cfg.Directory, path)
+	info, err := os.Stat(fullPath)
+	if err != nil {
+		return c.JSON(404, map[string]string{"error": "File not found"})
+	}
+
+	// Create temp zip file
+	tempZip := filepath.Join(os.TempDir(), fmt.Sprintf("%s_%d.zip", filepath.Base(fullPath), time.Now().Unix()))
+	defer os.Remove(tempZip)
+
+	if info.IsDir() {
+		if err := utils.ZipDirectory(fullPath, tempZip); err != nil {
+			return c.JSON(500, map[string]string{"error": "Failed to create zip"})
+		}
+	} else {
+		if err := utils.ZipFile(fullPath, tempZip); err != nil {
+			return c.JSON(500, map[string]string{"error": "Failed to create zip"})
+		}
+	}
+
+	return c.Attachment(tempZip, filepath.Base(fullPath)+".zip")
+}
+
+// BulkDownloadZip handles zip download of multiple files/folders
+func BulkDownloadZip(c echo.Context) error {
+	var paths []string
+	if err := c.Bind(&paths); err != nil {
+		return c.JSON(400, map[string]string{"error": "Invalid request"})
+	}
+
+	if len(paths) == 0 {
+		return c.JSON(400, map[string]string{"error": "No files selected"})
+	}
+
+	// Create temp zip file
+	tempZip := filepath.Join(os.TempDir(), fmt.Sprintf("bulk_%d.zip", time.Now().Unix()))
+	defer os.Remove(tempZip)
+
+	// Convert paths to full paths
+	fullPaths := make([]string, len(paths))
+	for i, p := range paths {
+		fullPaths[i] = utils.UrlToFilePath(cfg.Directory, p)
+	}
+
+	if err := utils.ZipMultipleFiles(fullPaths, tempZip); err != nil {
+		return c.JSON(500, map[string]string{"error": "Failed to create zip: " + err.Error()})
+	}
+
+	return c.Attachment(tempZip, fmt.Sprintf("files_%d.zip", time.Now().Unix()))
+}
+
+// CopyFile handles file/folder copying
+func CopyFileHandler(c echo.Context) error {
+	srcPath := c.FormValue("srcPath")
+	dstPath := c.FormValue("dstPath")
+
+	if srcPath == "" || dstPath == "" {
+		return c.JSON(400, map[string]string{"error": "Missing parameters"})
+	}
+
+	fullSrc := utils.UrlToFilePath(cfg.Directory, srcPath)
+	fullDst := utils.UrlToFilePath(cfg.Directory, dstPath)
+
+	if err := utils.CopyFile(fullSrc, fullDst); err != nil {
+		return c.JSON(500, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(200, map[string]string{"message": "Copied successfully"})
+}
+
+// MoveFile handles file/folder moving
+func MoveFileHandler(c echo.Context) error {
+	srcPath := c.FormValue("srcPath")
+	dstPath := c.FormValue("dstPath")
+
+	if srcPath == "" || dstPath == "" {
+		return c.JSON(400, map[string]string{"error": "Missing parameters"})
+	}
+
+	fullSrc := utils.UrlToFilePath(cfg.Directory, srcPath)
+	fullDst := utils.UrlToFilePath(cfg.Directory, dstPath)
+
+	if err := utils.MoveFile(fullSrc, fullDst); err != nil {
+		return c.JSON(500, map[string]string{"error": err.Error()})
+	}
+
+	utils.TriggerWebhooks("move", srcPath, map[string]interface{}{"destination": dstPath})
+
+	return c.JSON(200, map[string]string{"message": "Moved successfully"})
 }
