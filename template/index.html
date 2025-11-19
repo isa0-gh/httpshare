@@ -1,11 +1,34 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>httpshare - {{.Path}}</title>
   <script src="/tailwind.js"></script>
   <style>
+    :root[data-theme="light"] {
+      --bg-primary: #ffffff;
+      --bg-secondary: #f3f4f6;
+      --bg-tertiary: #e5e7eb;
+      --text-primary: #111827;
+      --text-secondary: #6b7280;
+      --accent: #3b82f6;
+      --border: #d1d5db;
+    }
+    :root[data-theme="dark"] {
+      --bg-primary: #111827;
+      --bg-secondary: #1f2937;
+      --bg-tertiary: #374151;
+      --text-primary: #f9fafb;
+      --text-secondary: #9ca3af;
+      --accent: #fbbf24;
+      --border: #4b5563;
+    }
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      transition: background-color 0.3s, color 0.3s;
+    }
     .modal { display: none; }
     .modal.active { display: flex; }
     .gallery-image { 
@@ -14,22 +37,22 @@
       object-fit: contain; 
     }
     .markdown-body {
-      color: #e5e7eb;
+      color: var(--text-primary);
       line-height: 1.6;
     }
     .markdown-body h1, .markdown-body h2, .markdown-body h3 {
-      color: #fbbf24;
+      color: var(--accent);
       margin-top: 1.5rem;
       margin-bottom: 0.75rem;
     }
     .markdown-body code {
-      background: #1f2937;
+      background: var(--bg-tertiary);
       padding: 0.2rem 0.4rem;
       border-radius: 0.25rem;
       font-size: 0.875rem;
     }
     .markdown-body pre {
-      background: #1f2937;
+      background: var(--bg-tertiary);
       padding: 1rem;
       border-radius: 0.5rem;
       overflow-x: auto;
@@ -47,26 +70,60 @@
       margin-bottom: 1rem;
     }
     .markdown-body blockquote {
-      border-left: 4px solid #fbbf24;
+      border-left: 4px solid var(--accent);
       padding-left: 1rem;
-      color: #9ca3af;
+      color: var(--text-secondary);
       margin: 1rem 0;
+    }
+    .file-row.selected {
+      background-color: var(--bg-tertiary) !important;
+    }
+    .btn {
+      transition: all 0.2s;
+    }
+    .btn:hover {
+      transform: translateY(-1px);
+    }
+    .playlist-item {
+      cursor: pointer;
+      padding: 0.5rem;
+      border-radius: 0.25rem;
+    }
+    .playlist-item:hover {
+      background: var(--bg-tertiary);
+    }
+    .playlist-item.active {
+      background: var(--accent);
+      color: var(--bg-primary);
     }
   </style>
 </head>
-<body class="bg-gray-900 min-h-screen text-gray-100 font-sans">
+<body class="min-h-screen font-sans">
 
   <div class="max-w-7xl mx-auto p-6">
 
     <!-- Header with Navigation and Actions -->
     <div class="mb-6 space-y-4">
-      <!-- Breadcrumb -->
+      <!-- Top Bar -->
       <div class="flex items-center justify-between">
         <div class="flex items-center space-x-3 text-lg">
           <a id="up-directory" href="#" class="hover:text-yellow-400 flex items-center transition">
             <span class="mr-1">⬆️</span> ../
           </a>
           <span class="text-yellow-400">📂 {{.Path}}</span>
+        </div>
+        
+        <!-- Theme Switcher -->
+        <div class="flex items-center space-x-2">
+          <button onclick="setTheme('light')" class="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700" title="Light Theme">
+            ☀️
+          </button>
+          <button onclick="setTheme('dark')" class="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700" title="Dark Theme">
+            🌙
+          </button>
+          <button onclick="setTheme('auto')" class="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700" title="Auto Theme">
+            🔄
+          </button>
         </div>
       </div>
 
@@ -85,14 +142,20 @@
         </select>
 
         <!-- Actions -->
-        <button onclick="openUploadModal()" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition">
+        <button onclick="openUploadModal()" class="btn bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition">
           📤 Upload
         </button>
-        <button onclick="openMkdirModal()" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg transition">
+        <button onclick="openMkdirModal()" class="btn bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg transition">
           📁 New Folder
         </button>
-        <button onclick="openGallery()" class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition">
+        <button onclick="openGallery()" class="btn bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition">
           🖼️ Gallery
+        </button>
+        <button onclick="openPlaylist()" class="btn bg-pink-600 hover:bg-pink-700 px-4 py-2 rounded-lg transition">
+          🎵 Playlist
+        </button>
+        <button onclick="bulkActions()" class="btn bg-orange-600 hover:bg-orange-700 px-4 py-2 rounded-lg transition" id="bulkBtn" style="display:none;">
+          ⚡ Bulk Actions
         </button>
       </div>
     </div>
@@ -102,6 +165,9 @@
       <table class="w-full">
         <thead class="bg-gray-700">
           <tr>
+            <th class="px-4 py-3 text-left">
+              <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+            </th>
             <th class="px-4 py-3 text-left">Name</th>
             <th class="px-4 py-3 text-left hidden md:table-cell">Size</th>
             <th class="px-4 py-3 text-left hidden lg:table-cell">Modified</th>
@@ -111,7 +177,10 @@
         </thead>
         <tbody id="fileList">
           {{range .Entries}}
-          <tr class="border-t border-gray-700 hover:bg-gray-750 transition" data-name="{{.Name}}">
+          <tr class="file-row border-t border-gray-700 hover:bg-gray-750 transition" data-name="{{.Name}}" data-is-dir="{{.IsDir}}" data-is-image="{{.IsImage}}" data-is-video="{{.IsVideo}}" data-is-audio="{{.IsAudio}}">
+            <td class="px-4 py-3">
+              <input type="checkbox" class="file-checkbox" data-path="{{.Name}}" onchange="updateBulkButton()">
+            </td>
             <td class="px-4 py-3">
               <div class="flex items-center space-x-2">
                 {{if .IsDir}}
@@ -120,6 +189,12 @@
                 {{else if .IsImage}}
                   <span class="text-2xl">🖼️</span>
                   <a href="#" onclick="event.preventDefault(); openImageInGallery('{{.Name}}');" class="hover:text-yellow-400 truncate">{{.Name}}</a>
+                {{else if isVideo .Name}}
+                  <span class="text-2xl">🎬</span>
+                  <a href="#" onclick="event.preventDefault(); previewFile('{{.Name}}');" class="hover:text-yellow-400 truncate">{{.Name}}</a>
+                {{else if isAudio .Name}}
+                  <span class="text-2xl">🎵</span>
+                  <a href="#" onclick="event.preventDefault(); addToPlaylist('{{.Name}}');" class="hover:text-yellow-400 truncate">{{.Name}}</a>
                 {{else}}
                   <span class="text-2xl">📄</span>
                   <a href="{{.Name}}/?download=true" class="hover:text-yellow-400 truncate">{{.Name}}</a>
@@ -138,14 +213,23 @@
             <td class="px-4 py-3 text-right">
               <div class="flex justify-end space-x-2">
                 {{if canPreview .Name}}
-                <button onclick="previewFile('{{.Name}}')" class="text-blue-400 hover:text-blue-300 text-sm">
+                <button onclick="previewFile('{{.Name}}')" class="text-blue-400 hover:text-blue-300 text-sm" title="Preview">
                   👁️
                 </button>
                 {{end}}
-                <button onclick="renameItem('{{.Name}}')" class="text-yellow-400 hover:text-yellow-300 text-sm">
+                <button onclick="shareFile('{{.Name}}')" class="text-green-400 hover:text-green-300 text-sm" title="Share">
+                  🔗
+                </button>
+                <button onclick="downloadZip('{{.Name}}')" class="text-purple-400 hover:text-purple-300 text-sm" title="Download as ZIP">
+                  📦
+                </button>
+                <button onclick="showComments('{{.Name}}')" class="text-cyan-400 hover:text-cyan-300 text-sm" title="Comments">
+                  💬
+                </button>
+                <button onclick="renameItem('{{.Name}}')" class="text-yellow-400 hover:text-yellow-300 text-sm" title="Rename">
                   ✏️
                 </button>
-                <button onclick="deleteItem('{{.Name}}')" class="text-red-400 hover:text-red-300 text-sm">
+                <button onclick="deleteItem('{{.Name}}')" class="text-red-400 hover:text-red-300 text-sm" title="Delete">
                   🗑️
                 </button>
               </div>
@@ -159,11 +243,17 @@
   </div>
 
   <!-- Upload Modal -->
-  <div id="uploadModal" class="modal fixed inset-0 bg-black bg-opacity-50 items-center justify-center">
+  <div id="uploadModal" class="modal fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50">
     <div class="bg-gray-800 p-6 rounded-lg max-w-md w-full mx-4">
       <h2 class="text-xl font-bold mb-4">Upload File</h2>
       <form id="uploadForm" enctype="multipart/form-data">
-        <input type="file" id="fileInput" class="w-full mb-4 text-gray-300">
+        <input type="file" id="fileInput" multiple class="w-full mb-4 text-gray-300">
+        <div id="uploadProgress" class="hidden mb-4">
+          <div class="w-full bg-gray-700 rounded-full h-2.5">
+            <div id="progressBar" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
+          </div>
+          <p id="progressText" class="text-sm text-gray-400 mt-2">Uploading...</p>
+        </div>
         <div class="flex justify-end space-x-3">
           <button type="button" onclick="closeUploadModal()" class="px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600">
             Cancel
@@ -177,7 +267,7 @@
   </div>
 
   <!-- Mkdir Modal -->
-  <div id="mkdirModal" class="modal fixed inset-0 bg-black bg-opacity-50 items-center justify-center">
+  <div id="mkdirModal" class="modal fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50">
     <div class="bg-gray-800 p-6 rounded-lg max-w-md w-full mx-4">
       <h2 class="text-xl font-bold mb-4">Create New Folder</h2>
       <form id="mkdirForm">
@@ -196,7 +286,7 @@
   </div>
 
   <!-- Preview Modal -->
-  <div id="previewModal" class="modal fixed inset-0 bg-black bg-opacity-75 items-center justify-center p-4">
+  <div id="previewModal" class="modal fixed inset-0 bg-black bg-opacity-75 items-center justify-center p-4 z-50">
     <div class="bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-auto">
       <div class="p-4 border-b border-gray-700 flex justify-between items-center">
         <h2 id="previewTitle" class="text-xl font-bold">Preview</h2>
@@ -207,7 +297,7 @@
   </div>
 
   <!-- Gallery Modal -->
-  <div id="galleryModal" class="modal fixed inset-0 bg-black bg-opacity-95 items-center justify-center">
+  <div id="galleryModal" class="modal fixed inset-0 bg-black bg-opacity-95 items-center justify-center z-50">
     <button onclick="closeGallery()" class="absolute top-4 right-4 text-white text-4xl z-50 hover:text-gray-300">&times;</button>
     
     <button onclick="prevImage()" class="absolute left-4 text-white text-5xl z-50 hover:text-gray-300 bg-black bg-opacity-50 rounded-full w-16 h-16 flex items-center justify-center">
@@ -227,42 +317,164 @@
     </div>
   </div>
 
+  <!-- Playlist Modal -->
+  <div id="playlistModal" class="modal fixed inset-0 bg-black bg-opacity-75 items-center justify-center p-4 z-50">
+    <div class="bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-auto">
+      <div class="p-4 border-b border-gray-700 flex justify-between items-center">
+        <h2 class="text-xl font-bold">🎵 Music Playlist</h2>
+        <button onclick="closePlaylist()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+      </div>
+      <div class="p-4">
+        <div class="mb-4">
+          <audio id="audioPlayer" controls class="w-full"></audio>
+        </div>
+        <div id="playlistItems" class="space-y-2 max-h-96 overflow-y-auto"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Share Modal -->
+  <div id="shareModal" class="modal fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50">
+    <div class="bg-gray-800 p-6 rounded-lg max-w-md w-full mx-4">
+      <h2 class="text-xl font-bold mb-4">Share File</h2>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm mb-2">Expires in (hours, leave empty for permanent)</label>
+          <input type="number" id="shareExpiry" placeholder="24" 
+                 class="w-full px-4 py-2 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400">
+        </div>
+        <div id="shareResult" class="hidden">
+          <label class="block text-sm mb-2">Share Link:</label>
+          <div class="flex space-x-2">
+            <input type="text" id="shareLink" readonly 
+                   class="flex-1 px-4 py-2 bg-gray-700 rounded-lg focus:outline-none">
+            <button onclick="copyShareLink()" class="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700">
+              📋 Copy
+            </button>
+          </div>
+        </div>
+        <div class="flex justify-end space-x-3">
+          <button onclick="closeShareModal()" class="px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600">
+            Close
+          </button>
+          <button onclick="createShare()" id="createShareBtn" class="px-4 py-2 bg-green-600 rounded-lg hover:bg-green-700">
+            Create Link
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Comments Modal -->
+  <div id="commentsModal" class="modal fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50">
+    <div class="bg-gray-800 p-6 rounded-lg max-w-2xl w-full mx-4 max-h-[80vh] overflow-auto">
+      <h2 class="text-xl font-bold mb-4">💬 Comments</h2>
+      <div id="commentsList" class="space-y-3 mb-4 max-h-64 overflow-y-auto"></div>
+      <form id="commentForm" class="space-y-3">
+        <input type="text" id="commentAuthor" placeholder="Your name (optional)" 
+               class="w-full px-4 py-2 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400">
+        <textarea id="commentContent" placeholder="Write a comment..." rows="3"
+                  class="w-full px-4 py-2 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"></textarea>
+        <div class="flex justify-end space-x-3">
+          <button type="button" onclick="closeCommentsModal()" class="px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600">
+            Close
+          </button>
+          <button type="submit" class="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700">
+            Add Comment
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Bulk Actions Modal -->
+  <div id="bulkModal" class="modal fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50">
+    <div class="bg-gray-800 p-6 rounded-lg max-w-md w-full mx-4">
+      <h2 class="text-xl font-bold mb-4">Bulk Actions</h2>
+      <div class="space-y-3">
+        <button onclick="bulkDownloadZip()" class="w-full px-4 py-2 bg-purple-600 rounded-lg hover:bg-purple-700">
+          📦 Download Selected as ZIP
+        </button>
+        <button onclick="bulkDelete()" class="w-full px-4 py-2 bg-red-600 rounded-lg hover:bg-red-700">
+          🗑️ Delete Selected
+        </button>
+        <button onclick="closeBulkModal()" class="w-full px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script>
+    // Theme Management
+    function setTheme(theme) {
+      localStorage.setItem('theme', theme);
+      applyTheme(theme);
+    }
+
+    function applyTheme(theme) {
+      if (theme === 'auto') {
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+      } else {
+        document.documentElement.setAttribute('data-theme', theme);
+      }
+    }
+
+    // Load saved theme
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    applyTheme(savedTheme);
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      // Ctrl/Cmd + U for upload
+      if ((e.ctrlKey || e.metaKey) && e.key === 'u') {
+        e.preventDefault();
+        openUploadModal();
+      }
+      // Ctrl/Cmd + N for new folder
+      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault();
+        openMkdirModal();
+      }
+      // Ctrl/Cmd + A for select all
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        e.preventDefault();
+        document.getElementById('selectAll').checked = true;
+        toggleSelectAll();
+      }
+      // Escape to close modals
+      if (e.key === 'Escape') {
+        closeAllModals();
+      }
+    });
+
+    function closeAllModals() {
+      document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
+    }
+
     // Markdown parser
     function parseMarkdown(text) {
-      // Escape HTML first
       let html = text
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
       
-      // Code blocks (```...```)
       html = html.replace(/```([^`]+)```/g, '<pre><code>$1</code></pre>');
-      
-      // Headers
       html = html.replace(/^#### (.*$)/gim, '<h4>$1</h4>');
       html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
       html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
       html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
-      
-      // Bold and Italic
       html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
       html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
       html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
       html = html.replace(/___(.+?)___/g, '<strong><em>$1</em></strong>');
       html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
       html = html.replace(/_(.+?)_/g, '<em>$1</em>');
-      
-      // Inline code
       html = html.replace(/`(.+?)`/g, '<code>$1</code>');
-      
-      // Links
       html = html.replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank">$1</a>');
-      
-      // Images
       html = html.replace(/!\[(.+?)\]\((.+?)\)/g, '<img src="$2" alt="$1" class="max-w-full h-auto">');
       
-      // Lists
       const lines = html.split('\n');
       let inList = false;
       let listType = '';
@@ -301,19 +513,12 @@
       if (inList) result.push(`</${listType}>`);
       html = result.join('\n');
       
-      // Blockquotes
       html = html.replace(/^&gt; (.+$)/gim, '<blockquote>$1</blockquote>');
-      
-      // Horizontal rules
       html = html.replace(/^---$/gim, '<hr>');
       html = html.replace(/^\*\*\*$/gim, '<hr>');
-      
-      // Paragraphs
       html = html.replace(/\n\n/g, '</p><p>');
       html = html.replace(/\n/g, '<br>');
       html = '<p>' + html + '</p>';
-      
-      // Clean up empty paragraphs
       html = html.replace(/<p><\/p>/g, '');
       html = html.replace(/<p><br>/g, '<p>');
       html = html.replace(/<br><\/p>/g, '</p>');
@@ -354,25 +559,107 @@
       }
     });
 
+    // Selection
+    function toggleSelectAll() {
+      const checked = document.getElementById('selectAll').checked;
+      document.querySelectorAll('.file-checkbox').forEach(cb => {
+        cb.checked = checked;
+        if (checked) {
+          cb.closest('tr').classList.add('selected');
+        } else {
+          cb.closest('tr').classList.remove('selected');
+        }
+      });
+      updateBulkButton();
+    }
+
+    function updateBulkButton() {
+      const selected = document.querySelectorAll('.file-checkbox:checked').length;
+      const bulkBtn = document.getElementById('bulkBtn');
+      if (selected > 0) {
+        bulkBtn.style.display = 'block';
+        bulkBtn.textContent = `⚡ Bulk Actions (${selected})`;
+      } else {
+        bulkBtn.style.display = 'none';
+      }
+      
+      // Update row styling
+      document.querySelectorAll('.file-checkbox').forEach(cb => {
+        if (cb.checked) {
+          cb.closest('tr').classList.add('selected');
+        } else {
+          cb.closest('tr').classList.remove('selected');
+        }
+      });
+    }
+
+    function getSelectedFiles() {
+      const selected = [];
+      document.querySelectorAll('.file-checkbox:checked').forEach(cb => {
+        selected.push(cb.getAttribute('data-path'));
+      });
+      return selected;
+    }
+
     // Upload
     function openUploadModal() {
       document.getElementById('uploadModal').classList.add('active');
     }
     function closeUploadModal() {
       document.getElementById('uploadModal').classList.remove('active');
+      document.getElementById('uploadProgress').classList.add('hidden');
+      document.getElementById('progressBar').style.width = '0%';
     }
+    
     document.getElementById('uploadForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const formData = new FormData();
-      formData.append('file', document.getElementById('fileInput').files[0]);
-      formData.append('path', currentPath === '/' ? '.' : currentPath.substring(1));
-      
-      const res = await fetch('/api/upload', { method: 'POST', body: formData });
-      if (res.ok) {
-        location.reload();
-      } else {
-        alert('Upload failed');
+      const files = document.getElementById('fileInput').files;
+      if (files.length === 0) return;
+
+      const progressDiv = document.getElementById('uploadProgress');
+      const progressBar = document.getElementById('progressBar');
+      const progressText = document.getElementById('progressText');
+      progressDiv.classList.remove('hidden');
+
+      for (let i = 0; i < files.length; i++) {
+        const formData = new FormData();
+        formData.append('file', files[i]);
+        formData.append('path', currentPath === '/' ? '.' : currentPath.substring(1));
+        
+        progressText.textContent = `Uploading ${i + 1}/${files.length}: ${files[i].name}`;
+        progressBar.style.width = `${((i + 1) / files.length) * 100}%`;
+
+        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        if (!res.ok) {
+          alert(`Failed to upload ${files[i].name}`);
+        }
       }
+
+      location.reload();
+    });
+
+    // Drag and drop upload
+    document.body.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+
+    document.body.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const files = e.dataTransfer.files;
+      if (files.length === 0) return;
+
+      for (let file of files) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('path', currentPath === '/' ? '.' : currentPath.substring(1));
+        
+        await fetch('/api/upload', { method: 'POST', body: formData });
+      }
+
+      location.reload();
     });
 
     // Mkdir
@@ -443,7 +730,6 @@
       const content = document.getElementById('previewContent');
       
       if (ext === 'md') {
-        // Markdown rendering
         fetch(`/${fullPath}?download=true`)
           .then(r => r.text())
           .then(text => {
@@ -461,13 +747,44 @@
           });
       } else if (ext === 'pdf') {
         content.innerHTML = `<iframe src="/${fullPath}?download=true" class="w-full h-96"></iframe>`;
-      } else if (['mp4', 'webm'].includes(ext)) {
-        content.innerHTML = `<video controls class="w-full"><source src="/${fullPath}?download=true"></video>`;
-      } else if (['mp3', 'wav'].includes(ext)) {
+      } else if (['mp4', 'webm', 'avi', 'mov', 'mkv'].includes(ext)) {
+        content.innerHTML = `
+          <video controls class="w-full" id="videoPlayer">
+            <source src="/${fullPath}?download=true">
+            <track kind="subtitles" src="" label="English" default>
+          </video>
+          <div class="mt-4">
+            <label class="block text-sm mb-2">Add Subtitle (VTT file):</label>
+            <input type="file" accept=".vtt" onchange="loadSubtitle(event)" class="w-full text-gray-300">
+          </div>
+        `;
+      } else if (['mp3', 'wav', 'ogg', 'flac'].includes(ext)) {
         content.innerHTML = `<audio controls class="w-full"><source src="/${fullPath}?download=true"></audio>`;
+      } else if (['docx', 'xlsx', 'pptx'].includes(ext)) {
+        content.innerHTML = `
+          <div class="text-center p-8">
+            <p class="mb-4">Office document preview not available in browser.</p>
+            <a href="/${fullPath}?download=true" class="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 inline-block">
+              📥 Download to view
+            </a>
+            <p class="mt-4 text-sm text-gray-400">Or use: <a href="https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(window.location.origin + '/' + fullPath + '?download=true')}" target="_blank" class="text-blue-400 underline">Office Online Viewer</a></p>
+          </div>
+        `;
       }
       
       document.getElementById('previewModal').classList.add('active');
+    }
+    
+    function loadSubtitle(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      const video = document.getElementById('videoPlayer');
+      const track = video.querySelector('track');
+      
+      const url = URL.createObjectURL(file);
+      track.src = url;
+      track.label = file.name;
     }
     
     function closePreviewModal() {
@@ -485,15 +802,14 @@
     let currentImageIndex = 0;
 
     function openGallery() {
-      // Collect all images from the current directory
       galleryImages = [];
       const rows = document.querySelectorAll('#fileList tr');
       const basePath = currentPath === '/' ? '' : currentPath.substring(1);
       
       rows.forEach(row => {
         const name = row.getAttribute('data-name');
-        const imageIcon = row.querySelector('.text-2xl');
-        if (imageIcon && imageIcon.textContent === '🖼️') {
+        const isImage = row.getAttribute('data-is-image') === 'true';
+        if (isImage) {
           const fullPath = basePath ? basePath + '/' + name : name;
           galleryImages.push({ name, path: fullPath });
         }
@@ -543,29 +859,346 @@
       else if (e.key === 'Escape') closeGallery();
     });
 
-    // Open gallery when clicking on images
     function openImageInGallery(imageName) {
-      // Collect all images
       galleryImages = [];
       const rows = document.querySelectorAll('#fileList tr');
       const basePath = currentPath === '/' ? '' : currentPath.substring(1);
       
       rows.forEach(row => {
         const name = row.getAttribute('data-name');
-        const imageIcon = row.querySelector('.text-2xl');
-        if (imageIcon && imageIcon.textContent === '🖼️') {
+        const isImage = row.getAttribute('data-is-image') === 'true';
+        if (isImage) {
           const fullPath = basePath ? basePath + '/' + name : name;
           galleryImages.push({ name, path: fullPath });
         }
       });
 
-      // Find the index of clicked image
       currentImageIndex = galleryImages.findIndex(img => img.name === imageName);
       if (currentImageIndex === -1) currentImageIndex = 0;
 
       showGalleryImage();
       document.getElementById('galleryModal').classList.add('active');
     }
+
+    // Playlist functionality
+    let playlist = [];
+    let currentTrackIndex = 0;
+
+    function openPlaylist() {
+      playlist = [];
+      const rows = document.querySelectorAll('#fileList tr');
+      const basePath = currentPath === '/' ? '' : currentPath.substring(1);
+      
+      rows.forEach(row => {
+        const name = row.getAttribute('data-name');
+        const isAudio = row.getAttribute('data-is-audio') === 'true';
+        if (isAudio) {
+          const fullPath = basePath ? basePath + '/' + name : name;
+          playlist.push({ name, path: fullPath });
+        }
+      });
+
+      if (playlist.length === 0) {
+        alert('No audio files found in this directory');
+        return;
+      }
+
+      renderPlaylist();
+      currentTrackIndex = 0;
+      playTrack(0);
+      document.getElementById('playlistModal').classList.add('active');
+    }
+
+    function closePlaylist() {
+      document.getElementById('playlistModal').classList.remove('active');
+      document.getElementById('audioPlayer').pause();
+    }
+
+    function renderPlaylist() {
+      const container = document.getElementById('playlistItems');
+      container.innerHTML = '';
+      
+      playlist.forEach((track, index) => {
+        const div = document.createElement('div');
+        div.className = 'playlist-item';
+        div.textContent = `${index + 1}. ${track.name}`;
+        div.onclick = () => playTrack(index);
+        container.appendChild(div);
+      });
+    }
+
+    function playTrack(index) {
+      currentTrackIndex = index;
+      const track = playlist[index];
+      const player = document.getElementById('audioPlayer');
+      player.src = `/${track.path}?download=true`;
+      player.play();
+      
+      // Update active state
+      document.querySelectorAll('.playlist-item').forEach((item, i) => {
+        if (i === index) {
+          item.classList.add('active');
+        } else {
+          item.classList.remove('active');
+        }
+      });
+    }
+
+    function addToPlaylist(name) {
+      const basePath = currentPath === '/' ? '' : currentPath.substring(1);
+      const fullPath = basePath ? basePath + '/' + name : name;
+      
+      if (!playlist.find(t => t.name === name)) {
+        playlist.push({ name, path: fullPath });
+      }
+      
+      openPlaylist();
+    }
+
+    // Auto-play next track
+    document.getElementById('audioPlayer').addEventListener('ended', () => {
+      if (currentTrackIndex < playlist.length - 1) {
+        playTrack(currentTrackIndex + 1);
+      }
+    });
+
+    // Share functionality
+    let currentSharePath = '';
+
+    function shareFile(name) {
+      const basePath = currentPath === '/' ? '' : currentPath.substring(1);
+      currentSharePath = basePath ? basePath + '/' + name : name;
+      
+      document.getElementById('shareResult').classList.add('hidden');
+      document.getElementById('createShareBtn').style.display = 'block';
+      document.getElementById('shareModal').classList.add('active');
+    }
+
+    function closeShareModal() {
+      document.getElementById('shareModal').classList.remove('active');
+    }
+
+    async function createShare() {
+      const expiry = document.getElementById('shareExpiry').value;
+      
+      const formData = new FormData();
+      formData.append('path', currentSharePath);
+      if (expiry) {
+        formData.append('expiresIn', expiry);
+      }
+      
+      const res = await fetch('/api/share', { method: 'POST', body: formData });
+      if (res.ok) {
+        const data = await res.json();
+        const fullUrl = window.location.origin + data.url;
+        document.getElementById('shareLink').value = fullUrl;
+        document.getElementById('shareResult').classList.remove('hidden');
+        document.getElementById('createShareBtn').style.display = 'none';
+      } else {
+        alert('Failed to create share link');
+      }
+    }
+
+    function copyShareLink() {
+      const input = document.getElementById('shareLink');
+      input.select();
+      document.execCommand('copy');
+      alert('Link copied to clipboard!');
+    }
+
+    // Comments functionality
+    let currentCommentPath = '';
+
+    async function showComments(name) {
+      const basePath = currentPath === '/' ? '' : currentPath.substring(1);
+      currentCommentPath = basePath ? basePath + '/' + name : name;
+      
+      await loadComments();
+      document.getElementById('commentsModal').classList.add('active');
+    }
+
+    function closeCommentsModal() {
+      document.getElementById('commentsModal').classList.remove('active');
+    }
+
+    async function loadComments() {
+      const res = await fetch(`/api/comments?path=${encodeURIComponent(currentCommentPath)}`);
+      if (res.ok) {
+        const comments = await res.json();
+        const container = document.getElementById('commentsList');
+        
+        if (comments && comments.length > 0) {
+          container.innerHTML = comments.map(c => `
+            <div class="bg-gray-700 p-3 rounded">
+              <div class="flex justify-between items-start mb-2">
+                <span class="font-bold">${escapeHtml(c.author)}</span>
+                <span class="text-xs text-gray-400">${new Date(c.created_at).toLocaleString()}</span>
+              </div>
+              <p class="text-gray-300">${escapeHtml(c.content)}</p>
+            </div>
+          `).join('');
+        } else {
+          container.innerHTML = '<p class="text-gray-400 text-center">No comments yet</p>';
+        }
+      }
+    }
+
+    document.getElementById('commentForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const author = document.getElementById('commentAuthor').value || 'Anonymous';
+      const content = document.getElementById('commentContent').value;
+      
+      if (!content) return;
+      
+      const formData = new FormData();
+      formData.append('path', currentCommentPath);
+      formData.append('author', author);
+      formData.append('content', content);
+      
+      const res = await fetch('/api/comment', { method: 'POST', body: formData });
+      if (res.ok) {
+        document.getElementById('commentAuthor').value = '';
+        document.getElementById('commentContent').value = '';
+        await loadComments();
+      } else {
+        alert('Failed to add comment');
+      }
+    });
+
+    // Download as ZIP
+    async function downloadZip(name) {
+      const basePath = currentPath === '/' ? '' : currentPath.substring(1);
+      const fullPath = basePath ? basePath + '/' + name : name;
+      
+      window.location.href = `/api/download-zip?path=${encodeURIComponent(fullPath)}`;
+    }
+
+    // Bulk actions
+    function bulkActions() {
+      document.getElementById('bulkModal').classList.add('active');
+    }
+
+    function closeBulkModal() {
+      document.getElementById('bulkModal').classList.remove('active');
+    }
+
+    async function bulkDownloadZip() {
+      const selected = getSelectedFiles();
+      if (selected.length === 0) return;
+      
+      const basePath = currentPath === '/' ? '' : currentPath.substring(1);
+      const fullPaths = selected.map(name => basePath ? basePath + '/' + name : name);
+      
+      // Create a temporary form to submit the paths
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/api/bulk-download-zip';
+      form.style.display = 'none';
+      
+      // Add paths as JSON in a hidden input
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'paths';
+      input.value = JSON.stringify(fullPaths);
+      form.appendChild(input);
+      
+      document.body.appendChild(form);
+      
+      // Submit via fetch to get the file
+      try {
+        const response = await fetch('/api/bulk-download-zip', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(fullPaths)
+        });
+        
+        if (response.ok) {
+          // Get the blob and download it
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `files_${Date.now()}.zip`;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+        } else {
+          alert('Failed to create ZIP file');
+        }
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+      
+      document.body.removeChild(form);
+      closeBulkModal();
+    }
+
+    async function bulkDelete() {
+      const selected = getSelectedFiles();
+      if (selected.length === 0) return;
+      
+      if (!confirm(`Delete ${selected.length} items?`)) return;
+      
+      const basePath = currentPath === '/' ? '' : currentPath.substring(1);
+      
+      for (const name of selected) {
+        const fullPath = basePath ? basePath + '/' + name : name;
+        await fetch(`/api/delete?path=${encodeURIComponent(fullPath)}`, { method: 'DELETE' });
+      }
+      
+      location.reload();
+    }
+
+    // Copy to clipboard functionality
+    document.addEventListener('keydown', async (e) => {
+      // Ctrl/Cmd + C for copy path
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+        const selected = getSelectedFiles();
+        if (selected.length > 0) {
+          const basePath = currentPath === '/' ? '' : currentPath.substring(1);
+          const paths = selected.map(name => basePath ? basePath + '/' + name : name);
+          
+          // Store in sessionStorage for paste
+          sessionStorage.setItem('copiedFiles', JSON.stringify(paths));
+          
+          // Visual feedback
+          const bulkBtn = document.getElementById('bulkBtn');
+          const originalText = bulkBtn.textContent;
+          bulkBtn.textContent = '📋 Copied!';
+          setTimeout(() => {
+            bulkBtn.textContent = originalText;
+          }, 1000);
+        }
+      }
+      
+      // Ctrl/Cmd + V for paste (move files)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+        const copiedFiles = sessionStorage.getItem('copiedFiles');
+        if (copiedFiles) {
+          const files = JSON.parse(copiedFiles);
+          const targetPath = currentPath === '/' ? '' : currentPath.substring(1);
+          
+          for (const srcPath of files) {
+            const fileName = srcPath.split('/').pop();
+            const dstPath = targetPath ? targetPath + '/' + fileName : fileName;
+            
+            const formData = new FormData();
+            formData.append('srcPath', srcPath);
+            formData.append('dstPath', dstPath);
+            
+            await fetch('/api/copy', { method: 'POST', body: formData });
+          }
+          
+          sessionStorage.removeItem('copiedFiles');
+          location.reload();
+        }
+      }
+    });
+
   </script>
 
 </body>
