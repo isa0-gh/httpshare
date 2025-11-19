@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/isa0-gh/httpshare/models"
+	"gitlab.com/isa0/httpshare/models"
 )
 
 func isImage(filename string) bool {

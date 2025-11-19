@@ -1,25 +1,63 @@
 package handlers
 
 import (
+	"fmt"
 	"io"
 	"net/url"
 	"os"
 	"path/filepath"
+	"time"
 
-	"github.com/isa0-gh/httpshare/config"
-	"github.com/isa0-gh/httpshare/template"
-	"github.com/isa0-gh/httpshare/utils"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/gommon/log"
+	"gitlab.com/isa0/httpshare/config"
+	"gitlab.com/isa0/httpshare/template"
+	"gitlab.com/isa0/httpshare/utils"
 )
 
 var cfg *config.Config = config.Cfg
 
+func Logger() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			err := next(c)
+			req := c.Request()
+			res := c.Response()
+
+			// Custom log format
+			if req.RequestURI != "/tailwind.js" && req.RequestURI != "/favicon.ico" {
+				now := time.Now()
+				logMsg := fmt.Sprintf("%s [%s] %s %s | Status-Code: %d | User-Agent: %s",
+					now.Format("2006/01/02 15:04:05"),
+					req.Method,
+					req.RequestURI,
+					c.RealIP(),
+					res.Status,
+					req.UserAgent(),
+				)
+				if cfg.LogFile != "" {
+					file, err := os.OpenFile(cfg.LogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+					if err != nil {
+						log.Info("Log writing error:", err.Error())
+					}
+
+					defer file.Close()
+					_, err = file.WriteString(logMsg + "\n")
+					if err != nil {
+						log.Info("Log writing error:", err.Error())
+					}
+				}
+				fmt.Println(logMsg)
+			}
+
+			return err
+		}
+	}
+}
+
 // UploadFile handles file upload
 func UploadFile(c echo.Context) error {
-	dirPath := c.FormValue("path")
-	if dirPath == "" {
-		dirPath = "."
-	}
+	dirPath := utils.UrlToFilePath(cfg.Directory, c.FormValue("path"))
 
 	file, err := c.FormFile("file")
 	if err != nil {
@@ -52,8 +90,7 @@ func DeleteFile(c echo.Context) error {
 	if path == "" {
 		return c.JSON(400, map[string]string{"error": "Path is required"})
 	}
-
-	if err := utils.DeleteFile(path); err != nil {
+	if err := utils.DeleteFile(utils.UrlToFilePath(cfg.Directory, path)); err != nil {
 		return c.JSON(500, map[string]string{"error": err.Error()})
 	}
 
@@ -69,7 +106,7 @@ func RenameFile(c echo.Context) error {
 		return c.JSON(400, map[string]string{"error": "Missing parameters"})
 	}
 
-	if err := utils.RenameFile(oldPath, newName); err != nil {
+	if err := utils.RenameFile(utils.UrlToFilePath(cfg.Directory, oldPath), newName); err != nil {
 		return c.JSON(500, map[string]string{"error": err.Error()})
 	}
 
@@ -83,7 +120,7 @@ func CreateDirectory(c echo.Context) error {
 		return c.JSON(400, map[string]string{"error": "Path is required"})
 	}
 
-	if err := utils.CreateDirectory(path); err != nil {
+	if err := utils.CreateDirectory(utils.UrlToFilePath(cfg.Directory, path)); err != nil {
 		return c.JSON(500, map[string]string{"error": err.Error()})
 	}
 
@@ -93,10 +130,7 @@ func CreateDirectory(c echo.Context) error {
 // SearchFiles handles file search
 func SearchFiles(c echo.Context) error {
 	query := c.QueryParam("q")
-	basePath := c.QueryParam("path")
-	if basePath == "" {
-		basePath = "."
-	}
+	basePath := utils.UrlToFilePath(cfg.Directory, c.QueryParam("path"))
 
 	results, err := utils.SearchFiles(basePath, query)
 	if err != nil {

@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"github.com/isa0-gh/httpshare/template"
+	"gitlab.com/isa0/httpshare/template"
 	"github.com/labstack/echo/v4"
 )
 

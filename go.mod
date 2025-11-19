@@ -1,4 +1,4 @@
-module github.com/isa0-gh/httpshare
+module gitlab.com/isa0/httpshare
 
 go 1.24.9
 

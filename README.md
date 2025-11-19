@@ -1,9 +1,7 @@
 # httpshare
-
+> This is mirror of the original repo https://gitlab.com/isa0/httpshare
+![httpshare](https://gitlab.com/uploads/-/system/project/avatar/75901585/httpshare.png)
 **httpshare** is a powerful web-based file manager written in Go. It allows you to quickly share, browse, and manage files over HTTP with minimal setup.
-
-
-[![Releases](https://img.shields.io/github/v/release/isa0-gh/httpshare)](https://github.com/isa0-gh/httpshare/releases)
 
 ## Features
 
@@ -42,14 +40,14 @@
 Make sure you have [Go](https://golang.org/dl/) installed. Then, run:
 
 ```bash
-go install github.com/isa0-gh/httpshare@latest
+go install gitlab.com/isa0/httpshare@latest
 ````
 
 This installs the `httpshare` binary in your Go `bin` directory (usually `$GOPATH/bin`).
 
 ## Usage
 
-**Start the file explorer with the following command:
+Start the file explorer with the following command:
 
 
 ```bash
@@ -60,6 +58,7 @@ httpshare [--port <port>] [--directory <path>]
 
 * `--port`: Set the port to serve the files (default: `8080`)
 * `--directory`: Specify the directory to serve (default: current directory)
+* `--log`: Write logs into a file (default: disabled)
 
 Then, open your web browser and navigate to:
 
@@ -87,6 +86,7 @@ curl -F "file=@myfile.txt" -F "path=." http://localhost:8080/api/upload
 ### Example: Delete a file
 ```bash
 curl -X DELETE "http://localhost:8080/api/delete?path=myfile.txt"
+```
 You will see a simple web interface to explore and download files in the specified directory.
 
 ### Example
@@ -99,7 +99,7 @@ httpshare --port 3000 --directory /home/user/Documents
 
 ## Contributing
 
-Contributions are welcome! Feel free to submit issues or pull requests.
+Contributions are welcome! Feel free to submit issues or merge requests.
 
 ## License
 

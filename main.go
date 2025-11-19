@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/isa0-gh/httpshare/config"
+	"gitlab.com/isa0/httpshare/config"
 
-	"github.com/isa0-gh/httpshare/routes"
 	"github.com/labstack/echo/v4"
+	"gitlab.com/isa0/httpshare/routes"
 )
 
 func main() {

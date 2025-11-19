@@ -1,15 +1,15 @@
 package routes
 
 import (
-	"github.com/isa0-gh/httpshare/handlers"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"gitlab.com/isa0/httpshare/handlers"
 )
 
 // Setup configures all application routes
 func Setup(e *echo.Echo) {
 	// Middleware
-	e.Use(middleware.Logger())
+	e.Use(handlers.Logger())
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORS())
 

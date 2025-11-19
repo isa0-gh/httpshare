@@ -7,8 +7,8 @@ import (
 	"path"
 	"strings"
 
-	"github.com/isa0-gh/httpshare/models"
-	"github.com/isa0-gh/httpshare/utils"
+	"gitlab.com/isa0/httpshare/models"
+	"gitlab.com/isa0/httpshare/utils"
 )
 
 //go:embed index.html
