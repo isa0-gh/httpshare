@@ -25,7 +25,7 @@ func Logger() echo.MiddlewareFunc {
 			res := c.Response()
 
 			// Custom log format
-			if req.RequestURI != "/tailwind.js" && req.RequestURI != "/favicon.ico" {
+			if req.RequestURI != "/tailwind.js" && req.RequestURI != "/favicon.ico" && res.Status != 206{
 				now := time.Now()
 				logMsg := fmt.Sprintf("%s [%s] %s %s | Status-Code: %d | User-Agent: %s",
 					now.Format("2006/01/02 15:04:05"),
