@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-var imageExtensions = []string{".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg"}
+var imageExtensions = []string{".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg",".avif"}
 var videoExtensions = []string{".mp4", ".webm", ".avi", ".mov", ".mkv", ".flv"}
 var audioExtensions = []string{".mp3", ".wav", ".ogg", ".flac", ".m4a", ".aac"}
 var previewExtensions = []string{".txt", ".md", ".log", ".json", ".xml", ".csv", ".pdf"}
